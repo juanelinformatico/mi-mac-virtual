@@ -1,0 +1,64 @@
+name: Entorno macOS Tahoe - Servidor de Terminal
+
+on: 
+  workflow_dispatch: # Activación manual con el botón "Run workflow"
+
+jobs:
+  arrancar-mac:
+    runs-on: macos-15 # El sistema base oficial y más estable de GitHub
+    
+    steps:
+    - name: 1. Descargar Herramientas Directas
+      run: |
+        echo "=== Descargando Ngrok ==="
+        # Descarga el binario oficial de ngrok para la arquitectura del servidor
+        curl -sL https://bin.equinox.io/c/bNyj1mQcaMx/ngrok-v3-stable-darwin-amd64.zip -o ngrok.zip
+        unzip -o ngrok.zip
+        chmod +x ngrok
+        sudo mv ngrok /usr/local/bin/
+        rm ngrok.zip
+
+        echo "=== Descargando Servidor Web (Gotty) ==="
+        # Descarga la terminal interactiva para navegadores web
+        curl -sL https://github.com/yudai/gotty/releases/download/v1.0.1/gotty_darwin_amd64.tar.gz | tar xz
+        chmod +x gotty
+        sudo mv gotty /usr/local/bin/
+
+    - name: 2. Enlazar con tu Cuenta de Ngrok
+      run: |
+        if [ -z "${{ secrets.NGROK_AUTH_TOKEN }}" ]; then
+          echo "=========================================================="
+          echo "❌ ERROR: No has guardado tu NGROK_AUTH_TOKEN en GitHub."
+          echo "Ve a Settings > Secrets and variables > Actions para añadirlo."
+          echo "=========================================================="
+          exit 1
+        fi
+        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+    - name: 3. Lanzar Consola Segura (Sin Tarjeta)
+      run: |
+        echo "=== Iniciando consola web protegida ==="
+        # Levanta la terminal en el puerto 8080 (Usuario: admin / Clave: 12345)
+        gotty -p 8080 -w -c admin:12345 login &
+        sleep 3
+
+        echo "=== Abriendo túnel seguro de Ngrok ==="
+        # Modo HTTP: 100% gratis y sin peticiones de tarjeta de crédito
+        ngrok http 8080 --log=stdout > /dev/null 2>&1 &
+        sleep 5
+
+    - name: 4. Entorno Listo
+      run: |
+        echo "=========================================================="
+        echo " 🎉 ¡ENTORNO MACOS ACTIVO Y PROTEGIDO! 🎉"
+        echo "=========================================================="
+        echo "1. Entra a tu panel: https://dashboard.ngrok.com/endpoints/status"
+        echo "2. Abre el enlace '.ngrok-free.app' en tu navegador."
+        echo "3. Usa las siguientes credenciales para iniciar sesión:"
+        echo "   👤 Usuario: admin"
+        echo "   🔒 Contraseña: 12345"
+        echo "=========================================================="
+        echo "No cierres esta pestaña de GitHub Actions. Tiempo límite: 6 horas."
+        
+        # Bucle infinito optimizado que no consume procesador para mantener vivo el flujo
+        while true; do sleep 60; done
